@@ -177,11 +177,11 @@ function create_grass_base() {
           GAME.add.sprite(x, y, 'img-blow-color').frame = TILES.house_0;
         } else if (threshold < 0.006) {
           GAME.add.sprite(x, y, 'img-blow-color').frame = TILES.house_1;
-        } else if (threshold < 0.007) {
-          GAME.add.sprite(x, y, 'img-blow-color').frame = TILES.shrooms_0;
         } else if (threshold < 0.008) {
+          GAME.add.sprite(x, y, 'img-blow-color').frame = TILES.shrooms_0;
+        } else if (threshold < 0.018) {
           GAME.add.sprite(x, y, 'img-blow-color').frame = TILES.bush_0;
-        } else if (threshold < 0.009) {
+        } else if (threshold < 0.028) {
           GAME.add.sprite(x, y, 'img-blow-color').frame = TILES.bush_1;
         } else {
           GAME.add.sprite(x, y, 'img-blow-color').frame = TILES.grass_0;
