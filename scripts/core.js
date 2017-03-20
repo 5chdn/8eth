@@ -10,6 +10,10 @@ let CANVAS = {
   width  : document.getElementById("eight").clientWidth,
   height : document.getElementById("eight").clientHeight
 };
+//let CANVAS = {
+//  width  : 256,
+//  height : 256
+//};
 
 let GAME = new Phaser.Game(CANVAS.width, CANVAS.height, Phaser.AUTO, 'eight',
   {
@@ -19,7 +23,8 @@ let GAME = new Phaser.Game(CANVAS.width, CANVAS.height, Phaser.AUTO, 'eight',
   }
 );
 
-let TILES = {
+let TILE_SIZE = 16;
+let TILE_TYPES = {
   bush_0 : 2038,
   bush_1 : 2039,
   cliff_border_inner_east : 2282,
@@ -128,94 +133,171 @@ let TILES = {
   water_border_outer_seast : 2053,
   water_border_outer_south : 2052,
   water_border_outer_swest : 2051,
-  water_border_outer_west : 1935,
+  water_border_outer_west : 1935
+}
+let LANDUSE = {
+  bush : 2,
+  cliff : 98,
+  grass : 0,
+  hill: 4,
+  house : 6,
+  rock : 5,
+  misc : 99,
+  tree : 3,
+  water : 1
 }
 
 let NOISE_GENERATOR;
-let TERRAIN;
+let NOISE;
+let MAP;
 
 //////// PRELOAD ///////////////////////////////////////////////////////////////
 function preload_8eth() {
   GAME.load.spritesheet(
     'img-blow-color',
     'assets/surt-blow-harder-256.png',
-    16,
-    16,
+    TILE_SIZE,
+    TILE_SIZE,
     4408
   );
 }
 
 //////// CREATE ////////////////////////////////////////////////////////////////
 function create_8eth() {
-  create_grass_base();
-  add_biome(TILES.water_0, 0.6);
+  init_grass_base();
+  add_water(0.6);
+  //add_water(TILE_TYPES.hills_group_center, 0.4);
 }
 
-function create_grass_base() {
+function init_grass_base() {
   GAME.stage.backgroundColor = "#9FE30E";
-  for (let x = 0; x < CANVAS.width; x += 16) {
-    for (let y = 0; y < CANVAS.height; y += 16) {
-      let threshold = Math.random() * 100.0;
-      if        (threshold > 95) {
-        GAME.add.sprite(x, y, 'img-blow-color').frame = TILES.grass_1;
-      } else if (threshold > 90) {
-        GAME.add.sprite(x, y, 'img-blow-color').frame = TILES.grass_2;
-      } else if (threshold > 85) {
-        GAME.add.sprite(x, y, 'img-blow-color').frame = TILES.grass_3;
-      } else if (threshold > 80) {
-        GAME.add.sprite(x, y, 'img-blow-color').frame = TILES.grass_4;
-      } else {
-        if        (threshold < 0.001) {
-          GAME.add.sprite(x, y, 'img-blow-color').frame = TILES.tomb_0;
-        } else if (threshold < 0.002) {
-          GAME.add.sprite(x, y, 'img-blow-color').frame = TILES.tomb_1;
-        } else if (threshold < 0.003) {
-          GAME.add.sprite(x, y, 'img-blow-color').frame = TILES.tomb_2;
-        } else if (threshold < 0.004) {
-          GAME.add.sprite(x, y, 'img-blow-color').frame = TILES.tomb_3;
-        } else if (threshold < 0.005) {
-          GAME.add.sprite(x, y, 'img-blow-color').frame = TILES.house_0;
-        } else if (threshold < 0.006) {
-          GAME.add.sprite(x, y, 'img-blow-color').frame = TILES.house_1;
-        } else if (threshold < 0.008) {
-          GAME.add.sprite(x, y, 'img-blow-color').frame = TILES.shrooms_0;
-        } else if (threshold < 0.018) {
-          GAME.add.sprite(x, y, 'img-blow-color').frame = TILES.bush_0;
-        } else if (threshold < 0.028) {
-          GAME.add.sprite(x, y, 'img-blow-color').frame = TILES.bush_1;
-        } else {
-          GAME.add.sprite(x, y, 'img-blow-color').frame = TILES.grass_0;
+  MAP = new Array(CANVAS.width);
+  for (let x = 0; x < CANVAS.width; x += TILE_SIZE) {
+    MAP[x] = new Array(CANVAS.height);
+    for (let y = 0; y < CANVAS.height; y += TILE_SIZE) {
+      let grass = TILE_TYPES.grass_0;
+      MAP[x][y] = {
+        type : grass,
+        category : LANDUSE.grass,
+        accessible : true
+      }
+      GAME.add.sprite(x, y, 'img-blow-color').frame = grass;
+    }
+  }
+}
+
+function add_water(threshold) {
+  generate_some_noise();
+  for (let x = 0; x < CANVAS.width; x += TILE_SIZE) {
+    for (let y = 0; y < CANVAS.height; y += TILE_SIZE) {
+      if (NOISE[x][y] > threshold) {
+        let water = TILE_TYPES.water_0;
+        MAP[x][y] = {
+          type : water,
+          category : LANDUSE.water,
+          accessible : false
         }
+        GAME.add.sprite(x, y, 'img-blow-color').frame = water;
+      }
+    }
+  }
+  add_water_border();
+}
+
+function add_water_border() {
+  for (let x = 0; x < CANVAS.width; x += TILE_SIZE) {
+    for (let y = 0; y < CANVAS.height; y += TILE_SIZE) {
+      if (get_landuse_north(x, y) == LANDUSE.water
+        && MAP[x][y].category == LANDUSE.grass) {
+        let cliff = TILE_TYPES.water_border_outer_south;
+        MAP[x][y] = {
+          type : cliff,
+          category : LANDUSE.cliff,
+          accessible : false
+        }
+        GAME.add.sprite(x, y, 'img-blow-color').frame = cliff;
+      }
+      if (get_landuse_south(x, y) == LANDUSE.water
+        && MAP[x][y].category == LANDUSE.grass) {
+        let cliff = TILE_TYPES.water_border_outer_north;
+        MAP[x][y] = {
+          type : cliff,
+          category : LANDUSE.cliff,
+          accessible : false
+        }
+        GAME.add.sprite(x, y, 'img-blow-color').frame = cliff;
+      }
+      if (get_landuse_west(x, y) == LANDUSE.water
+        && MAP[x][y].category == LANDUSE.grass) {
+        let cliff = TILE_TYPES.water_border_outer_east;
+        MAP[x][y] = {
+          type : cliff,
+          category : LANDUSE.cliff,
+          accessible : false
+        }
+        GAME.add.sprite(x, y, 'img-blow-color').frame = cliff;
+      }
+      if (get_landuse_east(x, y) == LANDUSE.water
+        && MAP[x][y].category == LANDUSE.grass) {
+        let cliff = TILE_TYPES.water_border_outer_west;
+        MAP[x][y] = {
+          type : cliff,
+          category : LANDUSE.cliff,
+          accessible : false
+        }
+        GAME.add.sprite(x, y, 'img-blow-color').frame = cliff;
       }
     }
   }
 }
 
-function add_biome(biome, threshold) {
-  generate_some_noise();
-  for (let x = 0; x < CANVAS.width; x += 16) {
-    for (let y = 0; y < CANVAS.height; y += 16) {
-      if (TERRAIN[x][y] > threshold)
-        GAME.add.sprite(x, y, 'img-blow-color').frame = biome;
-    }
+function get_landuse_north(x, y) {
+  if (y < TILE_SIZE) {
+    return LANDUSE.cliff;
+  } else {
+    return MAP[x][y - TILE_SIZE].category;
+  }
+}
+
+function get_landuse_west(x, y) {
+  if (x < TILE_SIZE) {
+    return LANDUSE.cliff;
+  } else {
+    return MAP[x - TILE_SIZE][y].category;
+  }
+}
+
+function get_landuse_south(x, y) {
+  if (y >= CANVAS.height - TILE_SIZE) {
+    return LANDUSE.cliff;
+  } else {
+    return MAP[x][y + TILE_SIZE].category;
+  }
+}
+
+function get_landuse_east(x, y) {
+  if (x >= CANVAS.width - TILE_SIZE) {
+    return LANDUSE.cliff;
+  } else {
+    return MAP[x + TILE_SIZE][y].category;
   }
 }
 
 function generate_some_noise(){
   NOISE_GENERATOR = new SimplexNoise(Math.random);
-  TERRAIN = new Array(CANVAS.width);
-  for (let x = 0; x < CANVAS.width; x += 16) {
-    TERRAIN[x] = new Array(CANVAS.height);
-    for (let y = 0; y < CANVAS.height; y += 16) {
+  NOISE = new Array(CANVAS.width);
+  for (let x = 0; x < CANVAS.width; x += TILE_SIZE) {
+    NOISE[x] = new Array(CANVAS.height);
+    for (let y = 0; y < CANVAS.height; y += TILE_SIZE) {
       let noise_x = x / CANVAS.width - 0.5;
       let noise_y = y / CANVAS.height - 0.5;
-      TERRAIN[x][y]
-        =          generate_noise(     noise_x,      noise_y)
+      NOISE[x][y]
+        = (         generate_noise(     noise_x,      noise_y)
         + 0.5000 * generate_noise( 2 * noise_x,  2 * noise_y)
         + 0.2500 * generate_noise( 4 * noise_x,  4 * noise_y)
         + 0.1250 * generate_noise( 8 * noise_x,  8 * noise_y)
         + 0.0625 * generate_noise(16 * noise_x, 16 * noise_y)
-        - 0.6375;
+        ) / (1 + 0.5 + 0.25 + 0.125 + 0.0625);
     }
   }
 }
