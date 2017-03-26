@@ -31,72 +31,8 @@ function create_8eth() {
   init_ocean();
   add_continents();
   detect_coasts();
-}
-
-function debug() {
-  GAME.stage.backgroundColor = "#FF0000";
-
-  let x = 0;
-  let y = 0;
-  let i = 0;
-  let b = true;
-  do {
-    i = 0;
-    let w = TILE_TYPES.water_2;
-    let g = TILE_TYPES.grass_2;
-    let tile = [w, w, w,
-                w, w, w,
-                w, w, w];
-
-    if (Math.random() > 0.5) { tile[0] = g; i +=   1; }
-    if (Math.random() > 0.5) { tile[1] = g; i +=   2; }
-    if (Math.random() > 0.5) { tile[2] = g; i +=   4; }
-    if (Math.random() > 0.5) { tile[3] = g; i +=   8; }
-    if (Math.random() > 0.5) { tile[4] = g; i +=  16; }
-    if (Math.random() > 0.5) { tile[5] = g; i +=  32; }
-    if (Math.random() > 0.5) { tile[6] = g; i +=  64; }
-    if (Math.random() > 0.5) { tile[7] = g; i += 128; }
-    if (Math.random() > 0.5) { tile[8] = g; i += 256; }
-
-    if (COAST_TYPES.water.includes(i) || COAST_TYPES.continent.includes(i) || COAST_TYPES.wetlands.includes(i) || COAST_TYPES.inner_nwest.includes(i) || COAST_TYPES.inner_neast.includes(i) || COAST_TYPES.inner_swest.includes(i) || COAST_TYPES.inner_seast.includes(i) || COAST_TYPES.outer_north.includes(i) || COAST_TYPES.outer_nwest.includes(i) || COAST_TYPES.outer_west.includes(i) || COAST_TYPES.outer_swest.includes(i) || COAST_TYPES.outer_south.includes(i) || COAST_TYPES.outer_seast.includes(i) || COAST_TYPES.outer_east.includes(i) || COAST_TYPES.outer_neast.includes(i)) {
-      continue;
-    } else {
-      GAME.add.sprite( x +  0, y +  0, 'img-blow-color').frame = tile[0];
-      GAME.add.sprite( x + 16, y +  0, 'img-blow-color').frame = tile[1];
-      GAME.add.sprite( x + 32, y +  0, 'img-blow-color').frame = tile[2];
-      GAME.add.sprite( x +  0, y + 16, 'img-blow-color').frame = tile[3];
-      GAME.add.sprite( x + 16, y + 16, 'img-blow-color').frame = tile[4];
-      GAME.add.sprite( x + 32, y + 16, 'img-blow-color').frame = tile[5];
-      GAME.add.sprite( x +  0, y + 32, 'img-blow-color').frame = tile[6];
-      GAME.add.sprite( x + 16, y + 32, 'img-blow-color').frame = tile[7];
-      GAME.add.sprite( x + 32, y + 32, 'img-blow-color').frame = tile[8];
-
-      window.console.log(String(i));
-
-      let style = { font: "16px monospace", fill: "#FFFFFF", align: "center"};
-      let text = GAME.add.text(
-        x + 64,
-        y + 16,
-        String(i),
-        style
-      );
-      text.anchor.set(0.5);
-      text.inputEnabled = true;
-      text.events.onInputDown.add(color_text, this);
-      //y += 64;
-      //if (y > CANVAS.height - 64) {
-        //y = 0;
-        //x += 128;
-        //if (x > CANVAS.width - 128) {
-          b = false;
-        //}
-      //}
-    }
-  } while (b)
-}
-
-function color_text(text) {
-  text.fill = "#000000";
+  add_forrest(0);
+  add_forrest(1);
 }
 
 function init_ocean() {
@@ -157,6 +93,7 @@ function detect_coasts() {
     for (let y = 0; y < CANVAS.height; y += TILE_SIZE) {
       INDICES[x][y] = get_landuse_index(x, y);
       let coast = TILE_TYPES.water_2;
+      let access = false;
       let style = { font: "8px monospace", fill: "#FFFFFF", align: "center"};
       if (COAST_TYPES.water.includes(INDICES[x][y])) {
         continue;
@@ -170,11 +107,7 @@ function detect_coasts() {
         } else {
           coast = TILE_TYPES.grass_4;
         }
-        MAP[x][y] = {
-          type : coast,
-          landuse : LANDUSE.grass,
-          accessible : true
-        }
+        access = true;
       } else if (COAST_TYPES.inner_nwest.includes(INDICES[x][y])) {
         coast = TILE_TYPES.water_border_inner_nwest;
       } else if (COAST_TYPES.inner_neast.includes(INDICES[x][y])) {
@@ -213,6 +146,11 @@ function detect_coasts() {
         text[x][y].events.onInputDown.add(debug_tile, this);
         continue;
       }
+//      MAP[x][y] = {
+//        type : coast,
+//        landuse : LANDUSE.water,
+//        accessible : access
+//      }
       let tile = GAME.add.sprite(x, y, 'img-blow-color')
       tile.frame = coast;
       tile.coast_index = INDICES[x][y];
@@ -221,9 +159,71 @@ function detect_coasts() {
     }
   }
 }
-function debug_tile (tile) {
-  window.console.log(tile.coast_index);
+
+function add_forrest(type) {
+  generate_noise_map();
+  for (let x = 0; x < CANVAS.width; x += TILE_SIZE) {
+    for (let y = 0; y < CANVAS.height; y += TILE_SIZE) {
+      if (MAP[x][y].landuse == LANDUSE.grass) {
+        let threshold = Math.random();
+        if (NOISE[x][y] < 0.2) {
+          let rock = TILE_TYPES.rocks_single_small;
+          if (threshold < 0.4) {
+            rock = TILE_TYPES.rocks_single_big;
+          } else if (threshold < 0.8) {
+            rock = TILE_TYPES.rocks_single_medium;
+          }
+          MAP[x][y] = {
+            type : rock,
+            landuse : LANDUSE.rock,
+            accessible : false
+          }
+          GAME.add.sprite(x, y, 'img-blow-color').frame = rock;
+        } else if (NOISE[x][y] > 0.8) {
+          let tree = TILE_TYPES.tree_leaf_single_small;
+          switch (type) {
+            case 0:
+              if (threshold < 0.4) {
+                tree = TILE_TYPES.tree_leaf_single_big;
+              } else if (threshold < 0.8) {
+                tree = TILE_TYPES.tree_leaf_single_medium;
+              }
+              break;
+            case 1:
+              if (threshold < 0.4) {
+                tree = TILE_TYPES.tree_needle_single_big;
+              } else if (threshold < 0.8) {
+                tree = TILE_TYPES.tree_needle_single_medium;
+              } else {
+                tree = TILE_TYPES.tree_needle_single_small;
+              }
+              break;
+            default:
+              tree = TILE_TYPES.tree_leaf_single_small;
+          }
+          MAP[x][y] = {
+            type : tree,
+            landuse : LANDUSE.tree,
+            accessible : false
+          }
+          GAME.add.sprite(x, y, 'img-blow-color').frame = tree;
+        }
+      }
+    }
+  }
 }
+
+//function detect_forrest_edge(type) {
+//  let text = new Array(CANVAS.width);
+//  for (let x = 0; x < CANVAS.width; x += TILE_SIZE) {
+//    text[x] = new Array(CANVAS.height);
+//    for (let y = 0; y < CANVAS.height; y += TILE_SIZE) {
+//      if (MAP[x][y] == LANDUSE.tree) {
+//        INDICES[x][y] = get_landuse_index(x, y);
+//      }
+//    }
+//  }
+//}
 
 function get_landuse_index(x, y) {
   let landuse_index = 0;
@@ -350,3 +350,74 @@ function generate_noise(noise_x, noise_y) {
 
 //////// UPDATE ////////////////////////////////////////////////////////////////
 function update_8eth() {}
+
+//////// DEBUG /////////////////////////////////////////////////////////////////
+function debug() {
+  GAME.stage.backgroundColor = "#FF0000";
+
+  let x = 0;
+  let y = 0;
+  let i = 0;
+  let b = true;
+  do {
+    i = 0;
+    let w = TILE_TYPES.water_2;
+    let g = TILE_TYPES.grass_2;
+    let tile = [w, w, w,
+                w, w, w,
+                w, w, w];
+
+    if (Math.random() > 0.5) { tile[0] = g; i +=   1; }
+    if (Math.random() > 0.5) { tile[1] = g; i +=   2; }
+    if (Math.random() > 0.5) { tile[2] = g; i +=   4; }
+    if (Math.random() > 0.5) { tile[3] = g; i +=   8; }
+    if (Math.random() > 0.5) { tile[4] = g; i +=  16; }
+    if (Math.random() > 0.5) { tile[5] = g; i +=  32; }
+    if (Math.random() > 0.5) { tile[6] = g; i +=  64; }
+    if (Math.random() > 0.5) { tile[7] = g; i += 128; }
+    if (Math.random() > 0.5) { tile[8] = g; i += 256; }
+
+    if (COAST_TYPES.water.includes(i) || COAST_TYPES.continent.includes(i) || COAST_TYPES.wetlands.includes(i) || COAST_TYPES.inner_nwest.includes(i) || COAST_TYPES.inner_neast.includes(i) || COAST_TYPES.inner_swest.includes(i) || COAST_TYPES.inner_seast.includes(i) || COAST_TYPES.outer_north.includes(i) || COAST_TYPES.outer_nwest.includes(i) || COAST_TYPES.outer_west.includes(i) || COAST_TYPES.outer_swest.includes(i) || COAST_TYPES.outer_south.includes(i) || COAST_TYPES.outer_seast.includes(i) || COAST_TYPES.outer_east.includes(i) || COAST_TYPES.outer_neast.includes(i)) {
+      continue;
+    } else {
+      GAME.add.sprite( x +  0, y +  0, 'img-blow-color').frame = tile[0];
+      GAME.add.sprite( x + 16, y +  0, 'img-blow-color').frame = tile[1];
+      GAME.add.sprite( x + 32, y +  0, 'img-blow-color').frame = tile[2];
+      GAME.add.sprite( x +  0, y + 16, 'img-blow-color').frame = tile[3];
+      GAME.add.sprite( x + 16, y + 16, 'img-blow-color').frame = tile[4];
+      GAME.add.sprite( x + 32, y + 16, 'img-blow-color').frame = tile[5];
+      GAME.add.sprite( x +  0, y + 32, 'img-blow-color').frame = tile[6];
+      GAME.add.sprite( x + 16, y + 32, 'img-blow-color').frame = tile[7];
+      GAME.add.sprite( x + 32, y + 32, 'img-blow-color').frame = tile[8];
+
+      window.console.log(String(i));
+
+      let style = { font: "16px monospace", fill: "#FFFFFF", align: "center"};
+      let text = GAME.add.text(
+        x + 64,
+        y + 16,
+        String(i),
+        style
+      );
+      text.anchor.set(0.5);
+      text.inputEnabled = true;
+      text.events.onInputDown.add(color_text, this);
+      y += 64;
+      if (y > CANVAS.height - 64) {
+        y = 0;
+        x += 128;
+        if (x > CANVAS.width - 128) {
+          b = false;
+        }
+      }
+    }
+  } while (b)
+}
+
+function color_text(text) {
+  text.fill = "#000000";
+}
+
+function debug_tile (tile) {
+  window.console.log(tile.coast_index);
+}
